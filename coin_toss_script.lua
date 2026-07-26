@@ -134,13 +134,9 @@ local function doUpgradeValue()
     if ok then print("[升级] 钱倍率") end
 end
 
--- 出售
-local sellDebounce = 0
+-- 出售（和以前一样，无限制）
 local function doSell()
     if not S.AutoSell or not SellAllItems then return end
-    local now = tick()
-    if now - sellDebounce < 2 then return end
-    sellDebounce = now
     local ok, err = pcall(function() SellAllItems:FireServer() end)
     if ok then
         print("[出售] 已卖")
@@ -183,15 +179,13 @@ local function flyStep()
     if not hum then return end
     local cam = workspace.CurrentCamera
     local speed = S.FlySpeed
+    -- MoveDirection 世界坐标（手机摇杆+键盘WASD通用）
     local md = hum.MoveDirection
-    local dir = cam.CFrame:VectorToObjectSpace(md) * speed
-    dir = Vector3.new(dir.X, 0, dir.Z)
-    if UIS:IsKeyDown(Enum.KeyCode.Space) or UIS:IsKeyDown(Enum.KeyCode.ButtonR1) then
-        dir = dir + Vector3.new(0, speed, 0)
-    end
-    if UIS:IsKeyDown(Enum.KeyCode.LeftShift) or UIS:IsKeyDown(Enum.KeyCode.ButtonL1) then
-        dir = dir + Vector3.new(0, -speed, 0)
-    end
+    local dir = md * speed
+    -- 上升：手机通过跳按钮 / 键盘空格
+    if hum.Jump then dir = dir + Vector3.new(0, speed * 0.5, 0) end
+    -- 下降
+    if UIS:IsKeyDown(Enum.KeyCode.LeftShift) then dir = dir + Vector3.new(0, -speed * 0.5, 0) end
     BV.Velocity = dir
     BG.CFrame = cam.CFrame
 end
@@ -331,23 +325,25 @@ while not PP do
     wait(0.1)
 end
 
+-- 快捷键：只用手动监听，不用 WindUI 内部（防止冲突）
 UIS.InputBegan:Connect(function(input, gpe)
     if gpe then return end
+    if input.UserInputType ~= Enum.UserInputType.Keyboard then return end
+    if input.KeyCode ~= KB.Toggle then return end
     local now = tick()
     if now - toggleLock < 0.3 then return end
-    if input.UserInputType == Enum.UserInputType.Keyboard and input.KeyCode == KB.Toggle then
-        toggleLock = now
-        if WN then
-            WN_visible = not WN_visible
-            if WN_visible then
-                pcall(function() WN:Open() end)
-            else
-                pcall(function() WN:Close() end)
-            end
+    toggleLock = now
+    if WN then
+        WN_visible = not WN_visible
+        if WN_visible then
+            pcall(function() WN:Open() end)
+        else
+            pcall(function() WN:Close() end)
         end
     end
 end)
 
+-- 监听角色重生
 LP.CharacterAdded:Connect(function()
     wait(1)
     if S.Fly then toggleFly(true) end
