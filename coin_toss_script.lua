@@ -45,6 +45,8 @@ local PR,PS,PC=false,{},nil
 local WN_visible=false
 local toggleLock=0
 local coinDebounce=0
+local sellDebounce=0
+local luckDebounce,valDebounce=0,0
 local coinList={"Paradox Coin","Lucky Coin","Golden Coin","Obsidian Coin","Platinum Coin","Ruby Coin","Emerald Coin","Amethyst Coin","Topaz Coin","Diamond Coin","Staff Token","VIP Token","Developer Token","Diamond Token"}
 
 local function getCoinName()
@@ -75,7 +77,6 @@ local function formatNum(v)
     return string.format("%.1f",v)
 end
 
--- 投币
 local function doThrow()
     if not S.AutoThrow or not CoinLanded then return end
     if getMultiplier()<S.ThrowMultiplier then return end
@@ -91,7 +92,6 @@ local function doThrow()
     wait(0.5)
 end
 
--- 购买
 local function doBuyCoin()
     if not S.AutoBuyCoin or not BuyCoin then return end
     if tick()-coinDebounce<3 then return end
@@ -103,14 +103,11 @@ local function doBuyCoin()
     end
 end
 
--- 升级
-local luckDebounce,valDebounce=0,0
 local function doUpgradeLuck()
     if not S.AutoUpgradeLuck or not RequestUpgrade then return end
     if tick()-luckDebounce<1 then return end
     luckDebounce=tick()
     pcall(function() RequestUpgrade:FireServer("Luck Multiplier") end)
-    print("[升级] 运气")
 end
 
 local function doUpgradeValue()
@@ -118,53 +115,44 @@ local function doUpgradeValue()
     if tick()-valDebounce<1 then return end
     valDebounce=tick()
     pcall(function() RequestUpgrade:FireServer("Value Multiplier") end)
-    print("[升级] 钱倍率")
 end
 
--- 出售（和Cobalt一样直接FireServer）
 local function doSell()
     if not S.AutoSell or not SellAll then return end
+    if tick()-sellDebounce<2 then return end
+    sellDebounce=tick()
     SellAll:FireServer()
     print("[出售] 已卖")
 end
 
--- 飞行
-local BV,BG=nil,nil
-local function clearFly()
-    if BV then pcall(function() BV:Destroy() end) BV=nil end
-    if BG then pcall(function() BG:Destroy() end) BG=nil end
-end
-
+local flyHeartbeat=nil
 local function toggleFly(on)
-    clearFly()
-    if not on then return end
-    local h=getHRP()
-    if not h then wait(0.5);h=getHRP();if not h then return end end
-    BV=Instance.new("BodyVelocity");BV.Velocity=Vector3.new(0,0,0);BV.MaxForce=Vector3.new(1,1,1)*4000;BV.P=1250;BV.Parent=h
-    BG=Instance.new("BodyGyro");BG.MaxTorque=Vector3.new(1,1,1)*4000;BG.P=1250;BG.D=500;BG.Parent=h
-end
-
-local function flyStep()
-    if not S.Fly or not BV then return end
-    local h=getHRP()
+    if flyHeartbeat then flyHeartbeat:Disconnect() flyHeartbeat=nil end
+    local c=LP.Character
+    if not c then return end
+    local h=c:FindFirstChildOfClass("Humanoid")
     if not h then return end
-    local hum=LP.Character and LP.Character:FindFirstChildOfClass("Humanoid")
-    if not hum then return end
-    local cam=workspace.CurrentCamera
-    local speed=S.FlySpeed
-    local md=hum.MoveDirection
-    local dir=md*speed
-    if hum.Jump or UIS:IsKeyDown(Enum.KeyCode.Space) then
-        dir=dir+Vector3.new(0,speed*0.5,0)
+    if on then
+        h.PlatformStand=true
+        flyHeartbeat=game:GetService("RunService").Heartbeat:Connect(function()
+            if not S.Fly or not LP.Character then return end
+            local hrp2=LP.Character:FindFirstChild("HumanoidRootPart")
+            if not hrp2 then return end
+            local speed=S.FlySpeed
+            local mv=Vector3.new(0,0,0)
+            if UIS:IsKeyDown(Enum.KeyCode.W) then mv=mv+hrp2.CFrame.LookVector end
+            if UIS:IsKeyDown(Enum.KeyCode.S) then mv=mv-hrp2.CFrame.LookVector end
+            if UIS:IsKeyDown(Enum.KeyCode.A) then mv=mv-hrp2.CFrame.RightVector end
+            if UIS:IsKeyDown(Enum.KeyCode.D) then mv=mv+hrp2.CFrame.RightVector end
+            if UIS:IsKeyDown(Enum.KeyCode.Space) then mv=mv+Vector3.new(0,1,0) end
+            if UIS:IsKeyDown(Enum.KeyCode.LeftControl) then mv=mv-Vector3.new(0,1,0) end
+            hrp2.Velocity=mv*speed
+        end)
+    else
+        h.PlatformStand=false
     end
-    if UIS:IsKeyDown(Enum.KeyCode.LeftShift) then
-        dir=dir+Vector3.new(0,-speed*0.5,0)
-    end
-    BV.Velocity=dir
-    BG.CFrame=cam.CFrame
 end
 
--- 粒子
 local function sP()
     if PR then return end
     if PC then pcall(function() local p=PC.Parent;if p then p:Destroy() end end) PC=nil end
@@ -194,7 +182,6 @@ local function xP() PR=false;if PC then pcall(function() local p=PC.Parent;if p 
 local tc_t={Dark=Color3.fromRGB(80,170,255),Light=Color3.fromRGB(60,130,210),Rose=Color3.fromRGB(255,130,170),Plant=Color3.fromRGB(70,210,130),Ocean=Color3.fromRGB(60,190,240),Sunset=Color3.fromRGB(255,160,70),Midnight=Color3.fromRGB(130,100,240),Forest=Color3.fromRGB(60,180,90),Lavender=Color3.fromRGB(190,140,255),Coral=Color3.fromRGB(255,140,90),Mint=Color3.fromRGB(80,230,190),Sky=Color3.fromRGB(100,190,255),Blood=Color3.fromRGB(230,90,80),Lemon=Color3.fromRGB(230,210,70),Cyber=Color3.fromRGB(0,235,210)}
 local function tc(n) return tc_t[n] or Color3.fromRGB(80,170,255) end
 
--- UI
 local function mW()
     WN=WI:CreateWindow({
         Title="扔硬币",Author="b站英吉利超入_",Icon="solar:coin-bold",
@@ -273,7 +260,6 @@ local function mW()
     return sCoin,sMult
 end
 
--- 启动
 pcall(function() WI:SetTheme("Dark") end)
 S.ParticleColor=tc("Dark")
 
@@ -285,7 +271,6 @@ WI:Popup({
 })
 while not PP do wait(0.1) end
 
--- 手动监听快捷键（WindUI内置ToggleKey=false，全由这个控制）
 UIS.InputBegan:Connect(function(input,gpe)
     if gpe then return end
     if input.UserInputType~=Enum.UserInputType.Keyboard then return end
@@ -294,20 +279,15 @@ UIS.InputBegan:Connect(function(input,gpe)
     if now-toggleLock<0.3 then return end
     toggleLock=now
     if not WN then return end
-    if WN_visible then
-        pcall(function() WN:Close() end)
-    else
-        pcall(function() WN:Open() end)
-    end
+    if WN_visible then pcall(function() WN:Close() end)
+    else pcall(function() WN:Open() end) end
 end)
 
-LP.CharacterAdded:Connect(function()
+LP.CharacterAdded:Connect(function(nc)
     wait(1)
-    if S.Fly then toggleFly(true) end
-    if S.Speed then
-        local h=LP.Character:FindFirstChildOfClass("Humanoid")
-        if h then h.WalkSpeed=S.SpeedVal end
-    end
+    local h=nc:FindFirstChildOfClass("Humanoid")
+    if S.Fly then toggleFly(true) elseif h then h.PlatformStand=false end
+    if S.Speed and h then h.WalkSpeed=S.SpeedVal end
 end)
 
 spawn(function()
@@ -319,7 +299,6 @@ spawn(function()
             local h=LP.Character and LP.Character:FindFirstChildOfClass("Humanoid")
             if h then h.WalkSpeed=S.SpeedVal end
         end
-        if S.Fly then flyStep() end
         if S.AutoThrow then pcall(doThrow) end
         if S.AutoBuyCoin then pcall(doBuyCoin) end
         if S.AutoUpgradeLuck then pcall(doUpgradeLuck) end
