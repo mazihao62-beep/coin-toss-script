@@ -43,6 +43,7 @@ local KB={Toggle=Enum.KeyCode.F4}
 local WN,CT=nil,{}
 local PR,PS,PC=false,{},nil
 local WN_visible=false
+local toggleLock=0
 local coinDebounce=0
 local sellDebounce=0
 local luckDebounce,valDebounce=0,0
@@ -139,10 +140,11 @@ local function toggleFly(on)
             if not hrp2 then return end
             local speed=S.FlySpeed
             local mv=Vector3.new(0,0,0)
-            if UIS:IsKeyDown(Enum.KeyCode.W) then mv=mv+hrp2.CFrame.LookVector end
-            if UIS:IsKeyDown(Enum.KeyCode.S) then mv=mv-hrp2.CFrame.LookVector end
-            if UIS:IsKeyDown(Enum.KeyCode.A) then mv=mv-hrp2.CFrame.RightVector end
-            if UIS:IsKeyDown(Enum.KeyCode.D) then mv=mv+hrp2.CFrame.RightVector end
+            local cf=workspace.CurrentCamera.CFrame
+            if UIS:IsKeyDown(Enum.KeyCode.W) then mv=mv+cf.LookVector end
+            if UIS:IsKeyDown(Enum.KeyCode.S) then mv=mv-cf.LookVector end
+            if UIS:IsKeyDown(Enum.KeyCode.A) then mv=mv-cf.RightVector end
+            if UIS:IsKeyDown(Enum.KeyCode.D) then mv=mv+cf.RightVector end
             if UIS:IsKeyDown(Enum.KeyCode.Space) then mv=mv+Vector3.new(0,1,0) end
             if UIS:IsKeyDown(Enum.KeyCode.LeftControl) then mv=mv-Vector3.new(0,1,0) end
             hrp2.Velocity=mv*speed
@@ -184,7 +186,7 @@ local function tc(n) return tc_t[n] or Color3.fromRGB(80,170,255) end
 local function mW()
     WN=WI:CreateWindow({
         Title="扔硬币",Author="b站英吉利超入_",Icon="solar:coin-bold",
-        Size=UDim2.fromOffset(750,560),ToggleKey=Enum.KeyCode.F4,
+        Size=UDim2.fromOffset(750,560),ToggleKey=false,
         Folder="coin-toss-script",Acrylic=true,Resizable=false,
         ScrollBarEnabled=true,HideSearchBar=true,
         OnClose=function()
@@ -270,7 +272,16 @@ WI:Popup({
 })
 while not PP do wait(0.1) end
 
--- 快捷键由 WindUI 内部 ToggleKey(F4) 管理
+UIS.InputBegan:Connect(function(input,gpe)
+    if gpe then return end
+    if input.KeyCode~=KB.Toggle and input.KeyCode~=Enum.KeyCode.F4 then return end
+    local now=tick()
+    if now-toggleLock<0.3 then return end
+    toggleLock=now
+    if not WN then return end
+    if WN_visible then WN_visible=false;WN:Close()
+    else WN_visible=true;WN:Open() end
+end)
 
 LP.CharacterAdded:Connect(function(nc)
     wait(1)
