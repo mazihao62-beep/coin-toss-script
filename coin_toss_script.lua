@@ -1,5 +1,6 @@
 --[[
     扔硬币游戏 - 自动脚本 v2.5
+    自动检测硬币 / 倍率投币 / 升级 / 出售 / 飞行 / 加速
 --]]
 
 print("[扔硬币] v2.5 加载中...")
@@ -47,8 +48,9 @@ local toggleLock=0
 local coinDebounce=0
 local sellDebounce=0
 local luckDebounce,valDebounce=0,0
-local flyGyro=nil
-local flyHeartbeat=nil
+local flyBV2=nil
+local flyGyro2=nil
+local flyHeartbeat2=nil
 local coinList={"Paradox Coin","Lucky Coin","Golden Coin","Obsidian Coin","Platinum Coin","Ruby Coin","Emerald Coin","Amethyst Coin","Topaz Coin","Diamond Coin","Staff Token","VIP Token","Developer Token","Diamond Token"}
 
 local function getCoinName()
@@ -128,21 +130,27 @@ local function doSell()
 end
 
 local function toggleFly(on)
-    if flyGyro then flyGyro:Destroy() flyGyro=nil end
-    if flyHeartbeat then flyHeartbeat:Disconnect() flyHeartbeat=nil end
+    if flyBV2 then flyBV2:Destroy() flyBV2=nil end
+    if flyGyro2 then flyGyro2:Destroy() flyGyro2=nil end
+    if flyHeartbeat2 then flyHeartbeat2:Disconnect() flyHeartbeat2=nil end
     local c=LP.Character
     if not c then return end
     local h=c:FindFirstChildOfClass("Humanoid")
     local hrp=c:FindFirstChild("HumanoidRootPart")
     if not h or not hrp then return end
     if on then
-        h.PlatformStand=true
-        flyGyro=Instance.new("BodyGyro")
-        flyGyro.MaxTorque=Vector3.new(1,1,1)*4000
-        flyGyro.P=1250
-        flyGyro.D=100
-        flyGyro.Parent=hrp
-        flyHeartbeat=game:GetService("RunService").Heartbeat:Connect(function()
+        h:ChangeState(Enum.HumanoidStateType.Physics)
+        flyBV2=Instance.new("BodyVelocity")
+        flyBV2.MaxForce=Vector3.new(9e9,9e9,9e9)
+        flyBV2.Velocity=Vector3.new(0,0,0)
+        flyBV2.Parent=hrp
+        flyGyro2=Instance.new("BodyGyro")
+        flyGyro2.MaxTorque=Vector3.new(9e9,9e9,9e9)
+        flyGyro2.CFrame=CFrame.lookAt(hrp.Position,hrp.Position+workspace.CurrentCamera.CFrame.LookVector*Vector3.new(1,0,1))
+        flyGyro2.P=8000
+        flyGyro2.D=500
+        flyGyro2.Parent=hrp
+        flyHeartbeat2=game:GetService("RunService").Heartbeat:Connect(function()
             if not S.Fly or not LP.Character then return end
             local hrp2=LP.Character:FindFirstChild("HumanoidRootPart")
             if not hrp2 then return end
@@ -155,11 +163,11 @@ local function toggleFly(on)
             if UIS:IsKeyDown(Enum.KeyCode.D) then mv=mv+cf.RightVector end
             if UIS:IsKeyDown(Enum.KeyCode.Space) then mv=mv+Vector3.new(0,1,0) end
             if UIS:IsKeyDown(Enum.KeyCode.LeftControl) then mv=mv-Vector3.new(0,1,0) end
-            hrp2.Velocity=mv*speed
-            flyGyro.CFrame=CFrame.lookAt(hrp2.Position,hrp2.Position+cf.LookVector*Vector3.new(1,0,1))
+            flyBV2.Velocity=mv*speed
+            flyGyro2.CFrame=CFrame.lookAt(hrp2.Position,hrp2.Position+cf.LookVector*Vector3.new(1,0,1))
         end)
     else
-        h.PlatformStand=false
+        h:ChangeState(Enum.HumanoidStateType.Running)
     end
 end
 
