@@ -30,16 +30,10 @@ local CoinLanded = Events and Events:FindFirstChild("CoinLanded")
 local RequestUpgrade = Events and Events:FindFirstChild("RequestUpgrade")
 local BuyCoin = Events and Events:FindFirstChild("BuyCoin")
 local SellAllItems = Events and Events:FindFirstChild("SellAllItems")
-print("[扔硬币] SellAllItems=" .. tostring(SellAllItems and "OK" or "NIL"))
-print("[扔硬币] RequestUpgrade=" .. tostring(RequestUpgrade and "OK" or "NIL"))
 print("[扔硬币] CoinLanded=" .. tostring(CoinLanded and "OK" or "NIL"))
+print("[扔硬币] RequestUpgrade=" .. tostring(RequestUpgrade and "OK" or "NIL"))
 print("[扔硬币] BuyCoin=" .. tostring(BuyCoin and "OK" or "NIL"))
-
--- 如果有其他出售事件，也找一下
-local SellItem = Events and Events:FindFirstChild("SellItem")
-local Sell = Events and Events:FindFirstChild("Sell")
-if SellItem then print("[扔硬币] SellItem=OK") end
-if Sell then print("[扔硬币] Sell=OK") end
+print("[扔硬币] SellAllItems=" .. tostring(SellAllItems and "OK" or "NIL"))
 
 local S = {
     AutoThrow = false, AutoBuyCoin = false, AutoUpgradeLuck = false,
@@ -53,6 +47,7 @@ local WN, CT = nil, {}
 local PR, PS, PC = false, {}, nil
 local WN_visible = false
 local toggleLock = 0
+local coinDebounce = 0
 local coinList = {"Paradox Coin","Lucky Coin","Golden Coin","Obsidian Coin","Platinum Coin","Ruby Coin","Emerald Coin","Amethyst Coin","Topaz Coin","Diamond Coin","Staff Token","VIP Token","Developer Token","Diamond Token"}
 
 local function getCoinName()
@@ -107,11 +102,13 @@ local function doThrow()
     wait(0.5)
 end
 
--- 购买硬币
+-- 购买硬币（带防抖）
 local function doBuyCoin()
     if not S.AutoBuyCoin or not BuyCoin then return end
+    if tick() - coinDebounce < 3 then return end
     local cur = getCoinName()
     if cur then return end
+    coinDebounce = tick()
     for _, name in ipairs(coinList) do
         local ok = pcall(function() BuyCoin:FireServer(name) end)
         if ok then print("[购买] " .. name) break end
@@ -119,59 +116,61 @@ local function doBuyCoin()
     end
 end
 
--- 升级
+-- 升级（带防抖）
+local luckDebounce, valDebounce = 0, 0
 local function doUpgradeLuck()
     if not S.AutoUpgradeLuck or not RequestUpgrade then return end
+    if tick() - luckDebounce < 1 then return end
+    luckDebounce = tick()
     local ok = pcall(function() RequestUpgrade:FireServer("Luck Multiplier") end)
     if ok then print("[升级] 运气") end
 end
 
 local function doUpgradeValue()
     if not S.AutoUpgradeValue or not RequestUpgrade then return end
+    if tick() - valDebounce < 1 then return end
+    valDebounce = tick()
     local ok = pcall(function() RequestUpgrade:FireServer("Value Multiplier") end)
     if ok then print("[升级] 钱倍率") end
 end
 
--- 出售（先试 SellAllItems，不行就试其他出售事件）
+-- 出售
+local sellDebounce = 0
 local function doSell()
-    if not S.AutoSell then return end
-    if SellAllItems then
-        local ok, err = pcall(function() SellAllItems:FireServer() end)
-        if ok then print("[出售] 已卖"); return end
-        print("[出售] SellAllItems 失败: " .. tostring(err))
-    end
-    if SellItem then
-        local ok, err = pcall(function() SellItem:FireServer() end)
-        if ok then print("[出售] SellItem 已卖"); return end
-        print("[出售] SellItem 失败: " .. tostring(err))
-    end
-    if Sell then
-        local ok, err = pcall(function() Sell:FireServer() end)
-        if ok then print("[出售] Sell 已卖"); return end
-        print("[出售] Sell 失败: " .. tostring(err))
+    if not S.AutoSell or not SellAllItems then return end
+    local now = tick()
+    if now - sellDebounce < 2 then return end
+    sellDebounce = now
+    local ok, err = pcall(function() SellAllItems:FireServer() end)
+    if ok then
+        print("[出售] 已卖")
+    else
+        print("[出售] 失败: " .. tostring(err))
     end
 end
 
 -- 飞行
 local BV, BG = nil, nil
+local function clearFly()
+    if BV then pcall(function() BV:Destroy() end) BV = nil end
+    if BG then pcall(function() BG:Destroy() end) BG = nil end
+end
+
 local function toggleFly(on)
-    if on then
-        local h = getHRP()
-        if not h then return end
-        BV = Instance.new("BodyVelocity")
-        BV.Velocity = Vector3.new(0,0,0)
-        BV.MaxForce = Vector3.new(1,1,1) * 4000
-        BV.P = 1250
-        BV.Parent = h
-        BG = Instance.new("BodyGyro")
-        BG.MaxTorque = Vector3.new(1,1,1) * 4000
-        BG.P = 1250
-        BG.D = 500
-        BG.Parent = h
-    else
-        if BV then pcall(function() BV:Destroy() end) BV = nil end
-        if BG then pcall(function() BG:Destroy() end) BG = nil end
-    end
+    clearFly()
+    if not on then return end
+    local h = getHRP()
+    if not h then wait(0.5); h = getHRP(); if not h then return end end
+    BV = Instance.new("BodyVelocity")
+    BV.Velocity = Vector3.new(0,0,0)
+    BV.MaxForce = Vector3.new(1,1,1) * 4000
+    BV.P = 1250
+    BV.Parent = h
+    BG = Instance.new("BodyGyro")
+    BG.MaxTorque = Vector3.new(1,1,1) * 4000
+    BG.P = 1250
+    BG.D = 500
+    BG.Parent = h
 end
 
 local function flyStep()
@@ -185,10 +184,8 @@ local function flyStep()
     local cam = workspace.CurrentCamera
     local speed = S.FlySpeed
     local md = hum.MoveDirection
-    -- 用 MoveDirection 兼容手机摇杆和键盘 WASD
     local dir = cam.CFrame:VectorToObjectSpace(md) * speed
     dir = Vector3.new(dir.X, 0, dir.Z)
-    -- 垂直：手机通过 Jump(上升) / 键盘通过 Space(上升) Shift(下降)
     if UIS:IsKeyDown(Enum.KeyCode.Space) or UIS:IsKeyDown(Enum.KeyCode.ButtonR1) then
         dir = dir + Vector3.new(0, speed, 0)
     end
@@ -260,7 +257,7 @@ local function mW()
     t1:Divider()
     CT.Speed=t1:Toggle({Flag="Speed",Title="加速",Value=false,Callback=function(v) S.Speed=v end})
     t1:Slider({Flag="SpeedVal",Title="速度",Step=5,Value={Min=16,Max=120,Default=50},Width=200,IsTextbox=true,Callback=function(v) S.SpeedVal=v end})
-    CT.Fly=t1:Toggle({Flag="Fly",Title="飞行",Value=false,Callback=function(v) S.Fly=v; toggleFly(v) end})
+    CT.Fly=t1:Toggle({Flag="Fly",Title="飞行(WASD+空格+Shift)",Value=false,Callback=function(v) S.Fly=v; toggleFly(v) end})
     t1:Slider({Flag="FlySpeed",Title="飞行速度",Step=5,Value={Min=10,Max=150,Default=50},Width=200,IsTextbox=true,Callback=function(v) S.FlySpeed=v end})
 
     local t2=WN:Tab({Title="快捷键", Icon="solar:settings-bold"})
@@ -348,6 +345,15 @@ UIS.InputBegan:Connect(function(input, gpe)
                 pcall(function() WN:Close() end)
             end
         end
+    end
+end)
+
+LP.CharacterAdded:Connect(function()
+    wait(1)
+    if S.Fly then toggleFly(true) end
+    if S.Speed then
+        local h = LP.Character:FindFirstChildOfClass("Humanoid")
+        if h then h.WalkSpeed = S.SpeedVal end
     end
 end)
 
