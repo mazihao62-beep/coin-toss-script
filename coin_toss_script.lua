@@ -42,7 +42,7 @@ print("[硬币] Upgrade=" .. (RequestUpgrade and "OK" or "NIL"))
 local S = {
     AutoThrow = false, AutoBuy = false,
     AutoUpgradeLuck = false, AutoUpgradeCash = false,
-    AutoSell = false, TargetMulti = 3,
+    AutoSell = false, TargetMulti = 3.0,
     Speed = false, SpeedValue = 50,
     Fly = false, FlySpeed = 50,
     Particles = true, Acrylic = true, Transparent = false,
@@ -92,7 +92,13 @@ local function getSelectedCoin()
     return cn.Text or "Paradox Coin"
 end
 
--- 自动投币 Cobalt确认: CoinLanded:FireServer(3, pos, coinName, nil, nil)
+-- 整数去.0，非整数保留小数
+local function fm(v)
+    local f = math.floor(v)
+    if v == f then return f else return v end
+end
+
+-- 自动投币 CoinLanded:FireServer(倍率, pos, coinName, nil, nil)
 local function doThrow()
     if not S.AutoThrow or not CoinLanded then return end
     local hrp = getHRP()
@@ -102,11 +108,12 @@ local function doThrow()
     if multi >= S.TargetMulti then
         local coin = getSelectedCoin()
         local pos = hrp.Position + hrp.CFrame.LookVector * 15
+        local mv = fm(S.TargetMulti)
         local ok, err = pcall(function()
-            CoinLanded:FireServer(S.TargetMulti, pos, coin, nil, nil)
+            CoinLanded:FireServer(mv, pos, coin, nil, nil)
         end)
         if ok then
-            print("[投币] " .. coin .. " @" .. S.TargetMulti .. "x")
+            print("[投币] " .. coin .. " @" .. tostring(mv) .. "x")
         else
             print("[投币] 失败: " .. tostring(err))
         end
@@ -236,8 +243,8 @@ local function mW()
     spawn(function() wait(0.5) pcall(function() WN:SetToggleKey(Enum.KeyCode.F4) end) end)
 
     local t1 = WN:Tab({Title="主控面板", Icon="solar:slider-vertical-bold"})
-    CT.AutoThrow = t1:Toggle({Flag="AutoThrow", Title="自动投币(倍率达标才投)", Value=false, Callback=function(v) S.AutoThrow=v end})
-    CT.MultiTarget = t1:Slider({Flag="MultiTarget", Title="目标倍率(1~3)", Step=1, Value={Min=1,Max=3,Default=3}, Width=200, IsTextbox=true, Callback=function(v) S.TargetMulti=v end})
+    CT.AutoThrow = t1:Toggle({Flag="AutoThrow", Title="自动投币(达标才投)", Value=false, Callback=function(v) S.AutoThrow=v end})
+    CT.MultiTarget = t1:Slider({Flag="MultiTarget", Title="目标倍率(0.1~3)", Step=0.1, Value={Min=0.1,Max=3,Default=3}, Width=200, IsTextbox=true, Callback=function(v) S.TargetMulti=v end})
     t1:Divider()
     CT.AutoBuy = t1:Toggle({Flag="AutoBuy", Title="自动购买硬币", Value=false, Callback=function(v) S.AutoBuy=v end})
     CT.AutoUpgradeLuck = t1:Toggle({Flag="AutoUpgradeLuck", Title="自动升级(运气)", Value=false, Callback=function(v) S.AutoUpgradeLuck=v end})
@@ -335,7 +342,8 @@ spawn(function()
             local ls = LP:FindFirstChild("leaderstats")
             local cash = ls and ls:FindFirstChild("Cash") and ls.Cash.Value or "?"
             local coin = getSelectedCoin()
-            local multi = getMultiplier() and string.format("%.1fx", getMultiplier()) or "?"
+            local raw = getMultiplier()
+            local multi = raw and (raw == math.floor(raw) and tostring(math.floor(raw)).."x" or string.format("%.1fx", raw)) or "?"
             if sCash then pcall(function() sCash:SetTitle("现金: $" .. tostring(cash)) end) end
             if sCoin then pcall(function() sCoin:SetTitle("当前硬币: " .. tostring(coin)) end) end
             if sMulti then pcall(function() sMulti:SetTitle("倍率: " .. tostring(multi)) end) end
