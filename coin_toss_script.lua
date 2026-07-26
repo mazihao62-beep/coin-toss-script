@@ -1,9 +1,9 @@
 --[[
-    扔硬币 v2.1 — 自动投币/购买/升级/出售
+    扔硬币 v2.2 — 自动投币/购买/升级/出售
     全中文 WindUI 7Tab
 --]]
 
-print("[硬币] v2.1 加载中...")
+print("[硬币] v2.2 加载中...")
 
 local P = game:GetService("Players")
 local WS = game:GetService("Workspace")
@@ -50,7 +50,7 @@ print("[硬币] Upgrade=" .. (RequestUpgrade and "OK" or "NIL"))
 local S = {
     AutoThrow = false, AutoBuy = false,
     AutoUpgradeLuck = false, AutoUpgradeCash = false,
-    AutoSell = false, TargetMulti = 0.95,
+    AutoSell = false, TargetMulti = 2.8,
     Speed = false, SpeedValue = 50,
     Fly = false, FlySpeed = 50,
     Particles = true, Acrylic = true, Transparent = false,
@@ -68,22 +68,60 @@ local function getHRP()
     local c = LP.Character; return c and c:FindFirstChild("HumanoidRootPart")
 end
 
+-- 获取当前倍率(0~3)
 local function getMultiplier()
     local pg = LP:FindFirstChild("PlayerGui")
-    local tb = pg and pg:FindFirstChild("UiFolder") and pg.UiFolder:FindFirstChild("Main")
-        and pg.UiFolder.Main:FindFirstChild("HUD") and pg.UiFolder.Main.HUD:FindFirstChild("ThrowBar")
-    local cm = tb and tb:FindFirstChild("CurrentMulti")
-    return cm and cm.Size.Y.Scale or nil
+    if not pg then return nil end
+    local ui = pg:FindFirstChild("UiFolder")
+    if not ui then return nil end
+    local main = ui:FindFirstChild("Main")
+    if not main then return nil end
+    local hud = main:FindFirstChild("HUD")
+    if not hud then return nil end
+    local bar = hud:FindFirstChild("ThrowBar")
+    if not bar then return nil end
+    local cm = bar:FindFirstChild("CurrentMulti")
+    if not cm then return nil end
+    local scale = cm.Size.Y.Scale  -- 0~1
+    return scale * 3  -- 0~3
 end
 
+-- 获取当前选中硬币名
 local function getSelectedCoin()
     local pg = LP:FindFirstChild("PlayerGui")
-    local cm = pg and pg:FindFirstChild("UiFolder") and pg.UiFolder:FindFirstChild("Main")
-        and pg.UiFolder.Main:FindFirstChild("HUD") and pg.UiFolder.Main.HUD:FindFirstChild("Coin")
-        and pg.UiFolder.Main.HUD.Coin:FindFirstChild("Main") and pg.UiFolder.Main.HUD.Coin.Main:FindFirstChild("CoinName")
-    return cm and cm.Text or "?"
+    if not pg then return "Basic Coin" end
+    local ui = pg:FindFirstChild("UiFolder")
+    if not ui then return "Basic Coin" end
+    local main = ui:FindFirstChild("Main")
+    if not main then return "Basic Coin" end
+    local hud = main:FindFirstChild("HUD")
+    if not hud then return "Basic Coin" end
+    local coin = hud:FindFirstChild("Coin")
+    if not coin then return "Basic Coin" end
+    local mainCoin = coin:FindFirstChild("Main")
+    if not mainCoin then return "Basic Coin" end
+    local cn = mainCoin:FindFirstChild("CoinName")
+    if not cn then return "Basic Coin" end
+    return cn.Text or "Basic Coin"
 end
 
+-- 获取硬币选择按钮的文字
+local function getCoinButtonText()
+    local pg = LP:FindFirstChild("PlayerGui")
+    if not pg then return nil end
+    local ui = pg:FindFirstChild("UiFolder")
+    if not ui then return nil end
+    local main = ui:FindFirstChild("Main")
+    if not main then return nil end
+    local hud = main:FindFirstChild("HUD")
+    if not hud then return nil end
+    local coin = hud:FindFirstChild("Coin")
+    if not coin then return nil end
+    local tc = coin:FindFirstChild("ThrowCoin")
+    return tc and tc.Text or nil
+end
+
+-- 自动投币
 local function doThrow()
     if not S.AutoThrow or not CoinThrow then return end
     local hrp = getHRP()
@@ -92,13 +130,28 @@ local function doThrow()
     if not multi then return end
     if multi >= S.TargetMulti then
         local coin = getSelectedCoin()
+        local btnText = getCoinButtonText()
         local pos = hrp.Position + hrp.CFrame.LookVector * 20
-        local ok, err = pcall(function() CoinThrow:FireServer(coin, pos) end)
-        if ok then print("[投币] " .. coin .. " @mult=" .. string.format("%.2f", multi)) end
+        local ok, err = pcall(function()
+            CoinThrow:FireServer(coin, pos)
+        end)
+        if ok then
+            print("[投币] " .. coin .. " @mult=" .. string.format("%.1f", multi) .. "x")
+        else
+            local ok2, err2 = pcall(function()
+                CoinThrow:FireServer(pos)
+            end)
+            if ok2 then
+                print("[投币] (无名) @mult=" .. string.format("%.1f", multi) .. "x")
+            else
+                print("[投币] 失败: " .. tostring(err) .. " | " .. tostring(err2))
+            end
+        end
         wait(0.5)
     end
 end
 
+-- 自动购买硬币
 local function doBuyCoins()
     if not S.AutoBuy or not BuyCoin then return end
     local ls = LP:FindFirstChild("leaderstats")
@@ -118,24 +171,43 @@ local function doBuyCoins()
     end
 end
 
+-- 自动升级(运气)
 local function doUpgradeLuck()
     if not S.AutoUpgradeLuck or not RequestUpgrade then return end
     for _, key in ipairs(luckKeys) do
         local ok, err = pcall(function() RequestUpgrade:FireServer(key) end)
-        if ok then print("[升级-运气] " .. key) else print("[升级-运气] " .. key .. " 失败") end
-        wait(0.2)
+        if ok then
+            print("[升级-运气] " .. key .. " OK")
+        else
+            print("[升级-运气] " .. key .. " 失败: " .. tostring(err))
+            local luckIds = {3603841151, 3603841134}
+            local idx = key == "MoreLuck" and 1 or 2
+            local ok2, err2 = pcall(function() RequestUpgrade:FireServer(tostring(luckIds[idx])) end)
+            if ok2 then print("[升级-运气] 数字版本 OK") end
+        end
+        wait(0.3)
     end
 end
 
+-- 自动升级(钱倍率)
 local function doUpgradeCash()
     if not S.AutoUpgradeCash or not RequestUpgrade then return end
     for _, key in ipairs(cashKeys) do
         local ok, err = pcall(function() RequestUpgrade:FireServer(key) end)
-        if ok then print("[升级-钱] " .. key) else print("[升级-钱] " .. key .. " 失败") end
-        wait(0.2)
+        if ok then
+            print("[升级-钱] " .. key .. " OK")
+        else
+            print("[升级-钱] " .. key .. " 失败: " .. tostring(err))
+            local cashIds = {3603820587, 3603820509}
+            local idx = key == "DoubleCash" and 2 or 1
+            local ok2, err2 = pcall(function() RequestUpgrade:FireServer(tostring(cashIds[idx])) end)
+            if ok2 then print("[升级-钱] 数字版本 OK") end
+        end
+        wait(0.3)
     end
 end
 
+-- 自动出售
 local function doSell()
     if not S.AutoSell or not SellAll then return end
     local ok, err = pcall(function() SellAll:FireServer() end)
@@ -227,7 +299,7 @@ end
 
 local function mW()
     WN = WI:CreateWindow({
-        Title="扔硬币 v2.1", Author="b站英吉利超入_", Icon="solar:wallet-bold",
+        Title="扔硬币 v2.2", Author="b站英吉利超入_", Icon="solar:wallet-bold",
         Size=UDim2.fromOffset(750,560), ToggleKey=Enum.KeyCode.F4,
         Folder="coin-toss-script", Acrylic=true, Resizable=false,
         ScrollBarEnabled=true, HideSearchBar=true,
@@ -241,7 +313,7 @@ local function mW()
 
     local t1 = WN:Tab({Title="主控面板", Icon="solar:slider-vertical-bold"})
     CT.AutoThrow = t1:Toggle({Flag="AutoThrow", Title="自动投币(当前硬币)", Value=false, Callback=function(v) S.AutoThrow=v end})
-    CT.MultiTarget = t1:Slider({Flag="MultiTarget", Title="投币倍率", Step=0.05, Value={Min=0.5,Max=1,Default=0.95}, Width=200, IsTextbox=true, Callback=function(v) S.TargetMulti=v end})
+    CT.MultiTarget = t1:Slider({Flag="MultiTarget", Title="投币倍率(0~3x)", Step=0.1, Value={Min=0.5,Max=3,Default=2.8}, Width=200, IsTextbox=true, Callback=function(v) S.TargetMulti=v end})
     t1:Divider()
     CT.AutoBuy = t1:Toggle({Flag="AutoBuy", Title="自动购买硬币", Value=false, Callback=function(v) S.AutoBuy=v end})
     CT.AutoUpgradeLuck = t1:Toggle({Flag="AutoUpgradeLuck", Title="自动升级(运气)", Value=false, Callback=function(v) S.AutoUpgradeLuck=v end})
@@ -291,7 +363,7 @@ local function mW()
     end)
 
     local t6 = WN:Tab({Title="关于", Icon="solar:info-square-bold"})
-    t6:Paragraph({Title="扔硬币 v2.1"}); t6:Divider()
+    t6:Paragraph({Title="扔硬币 v2.2"}); t6:Divider()
     t6:Paragraph({Title="作者", Desc="b站英吉利超入_"})
     t6:Paragraph({Title="说明", Desc="自动投币/购买/升级(运气+钱倍率)/出售 + 飞行加速"})
     return sCash, sCoin, sMulti
@@ -318,7 +390,7 @@ end)
 
 local PP = false
 WI:Popup({
-    Title="扔硬币 v2.1",
+    Title="扔硬币 v2.2",
     Content="自动投币/购买/升级/出售 + 飞行加速\n快捷键F4切换窗口",
     Buttons={{Title="加载", Callback=function() PP=true end, Variant="Primary"},{Title="取消", Callback=function() end}}
 })
@@ -326,7 +398,7 @@ while not PP do wait(0.1) end
 
 spawn(function()
     local sCash, sCoin, sMulti = mW()
-    print("[硬币] v2.1 运行中")
+    print("[硬币] v2.2 运行中")
     local last = 0
     while true do
         if S.AutoThrow then pcall(doThrow) end
@@ -341,7 +413,7 @@ spawn(function()
             local ls = LP:FindFirstChild("leaderstats")
             local cash = ls and ls:FindFirstChild("Cash") and ls.Cash.Value or "?"
             local coin = getSelectedCoin()
-            local multi = getMultiplier() and string.format("%.2fx", getMultiplier() * 3) or "?"
+            local multi = getMultiplier() and string.format("%.1fx", getMultiplier()) or "?"
             if sCash then pcall(function() sCash:SetTitle("现金: $" .. tostring(cash)) end) end
             if sCoin then pcall(function() sCoin:SetTitle("当前硬币: " .. tostring(coin)) end) end
             if sMulti then pcall(function() sMulti:SetTitle("倍率: " .. tostring(multi)) end) end
