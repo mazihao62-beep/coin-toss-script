@@ -43,7 +43,6 @@ local KB={Toggle=Enum.KeyCode.F4}
 local WN,CT=nil,{}
 local PR,PS,PC=false,{},nil
 local WN_visible=false
-local toggleLock=0
 local coinDebounce=0
 local sellDebounce=0
 local luckDebounce,valDebounce=0,0
@@ -185,7 +184,7 @@ local function tc(n) return tc_t[n] or Color3.fromRGB(80,170,255) end
 local function mW()
     WN=WI:CreateWindow({
         Title="扔硬币",Author="b站英吉利超入_",Icon="solar:coin-bold",
-        Size=UDim2.fromOffset(750,560),ToggleKey=false,
+        Size=UDim2.fromOffset(750,560),ToggleKey=Enum.KeyCode.F4,
         Folder="coin-toss-script",Acrylic=true,Resizable=false,
         ScrollBarEnabled=true,HideSearchBar=true,
         OnClose=function()
@@ -271,17 +270,7 @@ WI:Popup({
 })
 while not PP do wait(0.1) end
 
-UIS.InputBegan:Connect(function(input,gpe)
-    if gpe then return end
-    if input.UserInputType~=Enum.UserInputType.Keyboard then return end
-    if input.KeyCode~=KB.Toggle then return end
-    local now=tick()
-    if now-toggleLock<0.3 then return end
-    toggleLock=now
-    if not WN then return end
-    if WN_visible then pcall(function() WN:Close() end)
-    else pcall(function() WN:Open() end) end
-end)
+-- 快捷键由 WindUI 内部 ToggleKey(F4) 管理
 
 LP.CharacterAdded:Connect(function(nc)
     wait(1)
