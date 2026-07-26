@@ -29,11 +29,11 @@ local Events = RS:FindFirstChild("Assets") and RS.Assets:FindFirstChild("Events"
 local CoinLanded = Events and Events:FindFirstChild("CoinLanded")
 local RequestUpgrade = Events and Events:FindFirstChild("RequestUpgrade")
 local BuyCoin = Events and Events:FindFirstChild("BuyCoin")
-local SellAllItems = Events and Events:FindFirstChild("SellAllItems")
+local SellAll = Events and Events:FindFirstChild("SellAll")
 print("[扔硬币] CoinLanded=" .. tostring(CoinLanded and "OK" or "NIL"))
 print("[扔硬币] RequestUpgrade=" .. tostring(RequestUpgrade and "OK" or "NIL"))
 print("[扔硬币] BuyCoin=" .. tostring(BuyCoin and "OK" or "NIL"))
-print("[扔硬币] SellAllItems=" .. tostring(SellAllItems and "OK" or "NIL"))
+print("[扔硬币] SellAll=" .. tostring(SellAll and "OK" or "NIL"))
 
 local S = {
     AutoThrow = false, AutoBuyCoin = false, AutoUpgradeLuck = false,
@@ -134,10 +134,10 @@ local function doUpgradeValue()
     if ok then print("[升级] 钱倍率") end
 end
 
--- 出售（和以前一样，无限制）
+-- 出售（Cobalt: SellAll）
 local function doSell()
-    if not S.AutoSell or not SellAllItems then return end
-    local ok, err = pcall(function() SellAllItems:FireServer() end)
+    if not S.AutoSell or not SellAll then return end
+    local ok, err = pcall(function() SellAll:FireServer() end)
     if ok then
         print("[出售] 已卖")
     else
@@ -179,13 +179,14 @@ local function flyStep()
     if not hum then return end
     local cam = workspace.CurrentCamera
     local speed = S.FlySpeed
-    -- MoveDirection 世界坐标（手机摇杆+键盘WASD通用）
     local md = hum.MoveDirection
     local dir = md * speed
-    -- 上升：手机通过跳按钮 / 键盘空格
-    if hum.Jump then dir = dir + Vector3.new(0, speed * 0.5, 0) end
-    -- 下降
-    if UIS:IsKeyDown(Enum.KeyCode.LeftShift) then dir = dir + Vector3.new(0, -speed * 0.5, 0) end
+    if UIS:IsKeyDown(Enum.KeyCode.Space) then
+        dir = dir + Vector3.new(0, speed * 0.5, 0)
+    end
+    if UIS:IsKeyDown(Enum.KeyCode.LeftShift) then
+        dir = dir + Vector3.new(0, -speed * 0.5, 0)
+    end
     BV.Velocity = dir
     BG.CFrame = cam.CFrame
 end
@@ -224,7 +225,7 @@ local function tc(n) return tc_t[n] or Color3.fromRGB(80,170,255) end
 local function mW()
     WN = WI:CreateWindow({
         Title="扔硬币", Author="b站英吉利超入_", Icon="solar:coin-bold",
-        Size=UDim2.fromOffset(750,560), ToggleKey=KB.Toggle,
+        Size=UDim2.fromOffset(750,560), ToggleKey=false,
         Folder="coin-toss-script", Acrylic=true, Resizable=false,
         ScrollBarEnabled=true, HideSearchBar=true,
         OnClose=function()
@@ -325,7 +326,7 @@ while not PP do
     wait(0.1)
 end
 
--- 快捷键：只用手动监听，不用 WindUI 内部（防止冲突）
+-- 快捷键：纯手动监听，不用 WindUI 内部
 UIS.InputBegan:Connect(function(input, gpe)
     if gpe then return end
     if input.UserInputType ~= Enum.UserInputType.Keyboard then return end
@@ -343,7 +344,7 @@ UIS.InputBegan:Connect(function(input, gpe)
     end
 end)
 
--- 监听角色重生
+-- 监听角色重生，死亡后自动重新绑定飞行和速度
 LP.CharacterAdded:Connect(function()
     wait(1)
     if S.Fly then toggleFly(true) end
