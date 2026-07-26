@@ -50,6 +50,7 @@ local sellDebounce=0
 local luckDebounce,valDebounce=0,0
 local flyBV2=nil
 local flyGyro2=nil
+local flyCtrl=nil
 local flyHeartbeat2=nil
 local coinList={"Paradox Coin","Lucky Coin","Golden Coin","Obsidian Coin","Platinum Coin","Ruby Coin","Emerald Coin","Amethyst Coin","Topaz Coin","Diamond Coin","Staff Token","VIP Token","Developer Token","Diamond Token"}
 
@@ -130,44 +131,63 @@ local function doSell()
 end
 
 local function toggleFly(on)
+    if flyHeartbeat2 then flyHeartbeat2:Disconnect() flyHeartbeat2=nil end
     if flyBV2 then flyBV2:Destroy() flyBV2=nil end
     if flyGyro2 then flyGyro2:Destroy() flyGyro2=nil end
-    if flyHeartbeat2 then flyHeartbeat2:Disconnect() flyHeartbeat2=nil end
     local c=LP.Character
     if not c then return end
     local h=c:FindFirstChildOfClass("Humanoid")
-    local hrp=c:FindFirstChild("HumanoidRootPart")
-    if not h or not hrp then return end
+    if not h then return end
     if on then
-        h:ChangeState(Enum.HumanoidStateType.Physics)
-        flyBV2=Instance.new("BodyVelocity")
-        flyBV2.MaxForce=Vector3.new(9e9,9e9,9e9)
-        flyBV2.Velocity=Vector3.new(0,0,0)
-        flyBV2.Parent=hrp
-        flyGyro2=Instance.new("BodyGyro")
+        h.PlatformStand=true
+        flyCtrl={f=0,b=0,l=0,r=0}
+        local torso=c:FindFirstChild("Torso") or c:FindFirstChild("UpperTorso")
+        flyGyro2=Instance.new("BodyGyro",torso)
+        flyGyro2.P=9e4
         flyGyro2.MaxTorque=Vector3.new(9e9,9e9,9e9)
-        flyGyro2.CFrame=CFrame.lookAt(hrp.Position,hrp.Position+workspace.CurrentCamera.CFrame.LookVector*Vector3.new(1,0,1))
-        flyGyro2.P=8000
-        flyGyro2.D=500
-        flyGyro2.Parent=hrp
-        flyHeartbeat2=game:GetService("RunService").Heartbeat:Connect(function()
+        flyGyro2.CFrame=workspace.CurrentCamera.CoordinateFrame
+        flyBV2=Instance.new("BodyVelocity",torso)
+        flyBV2.Velocity=Vector3.new(0,0.1,0)
+        flyBV2.MaxForce=Vector3.new(9e9,9e9,9e9)
+        local speed=0
+        flyHeartbeat2=game:GetService("RunService").RenderStepped:Connect(function()
             if not S.Fly or not LP.Character then return end
-            local hrp2=LP.Character:FindFirstChild("HumanoidRootPart")
-            if not hrp2 then return end
-            local speed=S.FlySpeed
-            local mv=Vector3.new(0,0,0)
-            local cf=workspace.CurrentCamera.CFrame
-            if UIS:IsKeyDown(Enum.KeyCode.W) then mv=mv+cf.LookVector*Vector3.new(1,0,1) end
-            if UIS:IsKeyDown(Enum.KeyCode.S) then mv=mv-cf.LookVector*Vector3.new(1,0,1) end
-            if UIS:IsKeyDown(Enum.KeyCode.A) then mv=mv-cf.RightVector end
-            if UIS:IsKeyDown(Enum.KeyCode.D) then mv=mv+cf.RightVector end
-            if UIS:IsKeyDown(Enum.KeyCode.Space) then mv=mv+Vector3.new(0,1,0) end
-            if UIS:IsKeyDown(Enum.KeyCode.LeftControl) then mv=mv-Vector3.new(0,1,0) end
-            flyBV2.Velocity=mv*speed
-            flyGyro2.CFrame=CFrame.lookAt(hrp2.Position,hrp2.Position+cf.LookVector*Vector3.new(1,0,1))
+            flyCtrl={f=0,b=0,l=0,r=0}
+            if UIS:IsKeyDown(Enum.KeyCode.W) then flyCtrl.f=1 end
+            if UIS:IsKeyDown(Enum.KeyCode.S) then flyCtrl.b=1 end
+            if UIS:IsKeyDown(Enum.KeyCode.A) then flyCtrl.l=1 end
+            if UIS:IsKeyDown(Enum.KeyCode.D) then flyCtrl.r=1 end
+            local v=(flyCtrl.f+flyCtrl.b)
+            local h2=(flyCtrl.l+flyCtrl.r)
+            local ms=S.FlySpeed
+            if v~=0 or h2~=0 then
+                speed=speed+0.5+(speed/ms)
+                if speed>ms then speed=ms end
+            elseif speed~=0 then
+                speed=speed-1
+                if speed<0 then speed=0 end
+            end
+            local cf=workspace.CurrentCamera.CoordinateFrame
+            if v~=0 or h2~=0 then
+                flyBV2.Velocity=(cf.LookVector*v+((cf*CFrame.new(h2,v*0.2,0).p)-cf.p))*speed
+            elseif speed~=0 then
+                flyBV2.Velocity=(cf.LookVector*(flyCtrl.f+flyCtrl.b)+((cf*CFrame.new(flyCtrl.l+flyCtrl.r,(flyCtrl.f+flyCtrl.b)*0.2,0).p)-cf.p))*speed
+            else
+                flyBV2.Velocity=Vector3.new(0,0,0)
+            end
+            flyGyro2.CFrame=cf*CFrame.Angles(-math.rad(v*50*speed/ms),0,0)
+            if UIS:IsKeyDown(Enum.KeyCode.Space) then
+                c:FindFirstChild("HumanoidRootPart").CFrame=c:FindFirstChild("HumanoidRootPart").CFrame*CFrame.new(0,1,0)
+            end
+            if UIS:IsKeyDown(Enum.KeyCode.LeftControl) then
+                c:FindFirstChild("HumanoidRootPart").CFrame=c:FindFirstChild("HumanoidRootPart").CFrame*CFrame.new(0,-1,0)
+            end
         end)
     else
-        h:ChangeState(Enum.HumanoidStateType.Running)
+        h.PlatformStand=false
+        if flyHeartbeat2 then flyHeartbeat2:Disconnect() flyHeartbeat2=nil end
+        if flyBV2 then flyBV2:Destroy() flyBV2=nil end
+        if flyGyro2 then flyGyro2:Destroy() flyGyro2=nil end
     end
 end
 
@@ -303,7 +323,7 @@ end)
 LP.CharacterAdded:Connect(function(nc)
     wait(1)
     local h=nc:FindFirstChildOfClass("Humanoid")
-    if S.Fly then toggleFly(true) elseif h then h.PlatformStand=false end
+    if S.Fly then toggleFly(true) end
     if S.Speed and h then h.WalkSpeed=S.SpeedVal end
 end)
 
