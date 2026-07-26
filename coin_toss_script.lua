@@ -30,10 +30,16 @@ local CoinLanded = Events and Events:FindFirstChild("CoinLanded")
 local RequestUpgrade = Events and Events:FindFirstChild("RequestUpgrade")
 local BuyCoin = Events and Events:FindFirstChild("BuyCoin")
 local SellAllItems = Events and Events:FindFirstChild("SellAllItems")
-print("[扔硬币] CoinLanded=" .. tostring(CoinLanded and "OK" or "NIL"))
-print("[扔硬币] RequestUpgrade=" .. tostring(RequestUpgrade and "OK" or "NIL"))
-print("[扔硬币] BuyCoin=" .. tostring(BuyCoin and "OK" or "NIL"))
 print("[扔硬币] SellAllItems=" .. tostring(SellAllItems and "OK" or "NIL"))
+print("[扔硬币] RequestUpgrade=" .. tostring(RequestUpgrade and "OK" or "NIL"))
+print("[扔硬币] CoinLanded=" .. tostring(CoinLanded and "OK" or "NIL"))
+print("[扔硬币] BuyCoin=" .. tostring(BuyCoin and "OK" or "NIL"))
+
+-- 如果有其他出售事件，也找一下
+local SellItem = Events and Events:FindFirstChild("SellItem")
+local Sell = Events and Events:FindFirstChild("Sell")
+if SellItem then print("[扔硬币] SellItem=OK") end
+if Sell then print("[扔硬币] Sell=OK") end
 
 local S = {
     AutoThrow = false, AutoBuyCoin = false, AutoUpgradeLuck = false,
@@ -126,11 +132,24 @@ local function doUpgradeValue()
     if ok then print("[升级] 钱倍率") end
 end
 
--- 出售
+-- 出售（先试 SellAllItems，不行就试其他出售事件）
 local function doSell()
-    if not S.AutoSell or not SellAllItems then return end
-    pcall(function() SellAllItems:FireServer() end)
-    print("[出售] 已卖")
+    if not S.AutoSell then return end
+    if SellAllItems then
+        local ok, err = pcall(function() SellAllItems:FireServer() end)
+        if ok then print("[出售] 已卖"); return end
+        print("[出售] SellAllItems 失败: " .. tostring(err))
+    end
+    if SellItem then
+        local ok, err = pcall(function() SellItem:FireServer() end)
+        if ok then print("[出售] SellItem 已卖"); return end
+        print("[出售] SellItem 失败: " .. tostring(err))
+    end
+    if Sell then
+        local ok, err = pcall(function() Sell:FireServer() end)
+        if ok then print("[出售] Sell 已卖"); return end
+        print("[出售] Sell 失败: " .. tostring(err))
+    end
 end
 
 -- 飞行
