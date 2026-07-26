@@ -43,9 +43,12 @@ local KB={Toggle=Enum.KeyCode.F4}
 local WN,CT=nil,{}
 local PR,PS,PC=false,{},nil
 local WN_visible=false
+local toggleLock=0
 local coinDebounce=0
 local sellDebounce=0
 local luckDebounce,valDebounce=0,0
+local flyGyro=nil
+local flyHeartbeat=nil
 local coinList={"Paradox Coin","Lucky Coin","Golden Coin","Obsidian Coin","Platinum Coin","Ruby Coin","Emerald Coin","Amethyst Coin","Topaz Coin","Diamond Coin","Staff Token","VIP Token","Developer Token","Diamond Token"}
 
 local function getCoinName()
@@ -124,28 +127,36 @@ local function doSell()
     print("[出售] 已卖")
 end
 
-local flyHeartbeat=nil
 local function toggleFly(on)
+    if flyGyro then flyGyro:Destroy() flyGyro=nil end
     if flyHeartbeat then flyHeartbeat:Disconnect() flyHeartbeat=nil end
     local c=LP.Character
     if not c then return end
     local h=c:FindFirstChildOfClass("Humanoid")
-    if not h then return end
+    local hrp=c:FindFirstChild("HumanoidRootPart")
+    if not h or not hrp then return end
     if on then
         h.PlatformStand=true
+        flyGyro=Instance.new("BodyGyro")
+        flyGyro.MaxTorque=Vector3.new(1,1,1)*4000
+        flyGyro.P=1250
+        flyGyro.D=100
+        flyGyro.Parent=hrp
         flyHeartbeat=game:GetService("RunService").Heartbeat:Connect(function()
             if not S.Fly or not LP.Character then return end
             local hrp2=LP.Character:FindFirstChild("HumanoidRootPart")
             if not hrp2 then return end
             local speed=S.FlySpeed
             local mv=Vector3.new(0,0,0)
-            if UIS:IsKeyDown(Enum.KeyCode.W) then mv=mv+hrp2.CFrame.LookVector end
-            if UIS:IsKeyDown(Enum.KeyCode.S) then mv=mv-hrp2.CFrame.LookVector end
-            if UIS:IsKeyDown(Enum.KeyCode.A) then mv=mv-hrp2.CFrame.RightVector end
-            if UIS:IsKeyDown(Enum.KeyCode.D) then mv=mv+hrp2.CFrame.RightVector end
+            local cf=workspace.CurrentCamera.CFrame
+            if UIS:IsKeyDown(Enum.KeyCode.W) then mv=mv+cf.LookVector*Vector3.new(1,0,1) end
+            if UIS:IsKeyDown(Enum.KeyCode.S) then mv=mv-cf.LookVector*Vector3.new(1,0,1) end
+            if UIS:IsKeyDown(Enum.KeyCode.A) then mv=mv-cf.RightVector end
+            if UIS:IsKeyDown(Enum.KeyCode.D) then mv=mv+cf.RightVector end
             if UIS:IsKeyDown(Enum.KeyCode.Space) then mv=mv+Vector3.new(0,1,0) end
             if UIS:IsKeyDown(Enum.KeyCode.LeftControl) then mv=mv-Vector3.new(0,1,0) end
             hrp2.Velocity=mv*speed
+            flyGyro.CFrame=CFrame.lookAt(hrp2.Position,hrp2.Position+cf.LookVector*Vector3.new(1,0,1))
         end)
     else
         h.PlatformStand=false
@@ -184,7 +195,7 @@ local function tc(n) return tc_t[n] or Color3.fromRGB(80,170,255) end
 local function mW()
     WN=WI:CreateWindow({
         Title="扔硬币",Author="b站英吉利超入_",Icon="solar:coin-bold",
-        Size=UDim2.fromOffset(750,560),ToggleKey=Enum.KeyCode.F4,
+        Size=UDim2.fromOffset(750,560),ToggleKey=false,
         Folder="coin-toss-script",Acrylic=true,Resizable=false,
         ScrollBarEnabled=true,HideSearchBar=true,
         OnClose=function()
@@ -270,7 +281,16 @@ WI:Popup({
 })
 while not PP do wait(0.1) end
 
--- 窗口开关快捷键完全由 WindUI 的 ToggleKey=F4 管理
+UIS.InputBegan:Connect(function(input,gpe)
+    if gpe then return end
+    if input.KeyCode~=KB.Toggle and input.KeyCode~=Enum.KeyCode.F4 then return end
+    local now=tick()
+    if now-toggleLock<0.3 then return end
+    toggleLock=now
+    if not WN then return end
+    if WN_visible then WN_visible=false;WN:Close()
+    else WN_visible=true;WN:Open() end
+end)
 
 LP.CharacterAdded:Connect(function(nc)
     wait(1)
