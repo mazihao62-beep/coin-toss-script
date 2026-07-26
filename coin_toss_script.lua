@@ -159,19 +159,23 @@ local function flyStep()
     if not S.Fly or not BV then return end
     local h = getHRP()
     if not h then return end
+    local char = LP.Character
+    if not char then return end
+    local hum = char:FindFirstChildOfClass("Humanoid")
+    if not hum then return end
     local cam = workspace.CurrentCamera
     local speed = S.FlySpeed
-    local fwd = cam.CFrame.LookVector * speed
-    local right = cam.CFrame.RightVector * speed
-    local up = Vector3.new(0, speed, 0)
-    local down = Vector3.new(0, -speed, 0)
-    local dir = Vector3.new(0,0,0)
-    if UIS:IsKeyDown(Enum.KeyCode.W) then dir = dir + fwd end
-    if UIS:IsKeyDown(Enum.KeyCode.S) then dir = dir - fwd end
-    if UIS:IsKeyDown(Enum.KeyCode.A) then dir = dir - right end
-    if UIS:IsKeyDown(Enum.KeyCode.D) then dir = dir + right end
-    if UIS:IsKeyDown(Enum.KeyCode.Space) then dir = dir + up end
-    if UIS:IsKeyDown(Enum.KeyCode.LeftShift) then dir = dir + down end
+    local md = hum.MoveDirection
+    -- 用 MoveDirection 兼容手机摇杆和键盘 WASD
+    local dir = cam.CFrame:VectorToObjectSpace(md) * speed
+    dir = Vector3.new(dir.X, 0, dir.Z)
+    -- 垂直：手机通过 Jump(上升) / 键盘通过 Space(上升) Shift(下降)
+    if UIS:IsKeyDown(Enum.KeyCode.Space) or UIS:IsKeyDown(Enum.KeyCode.ButtonR1) then
+        dir = dir + Vector3.new(0, speed, 0)
+    end
+    if UIS:IsKeyDown(Enum.KeyCode.LeftShift) or UIS:IsKeyDown(Enum.KeyCode.ButtonL1) then
+        dir = dir + Vector3.new(0, -speed, 0)
+    end
     BV.Velocity = dir
     BG.CFrame = cam.CFrame
 end
@@ -237,7 +241,7 @@ local function mW()
     t1:Divider()
     CT.Speed=t1:Toggle({Flag="Speed",Title="加速",Value=false,Callback=function(v) S.Speed=v end})
     t1:Slider({Flag="SpeedVal",Title="速度",Step=5,Value={Min=16,Max=120,Default=50},Width=200,IsTextbox=true,Callback=function(v) S.SpeedVal=v end})
-    CT.Fly=t1:Toggle({Flag="Fly",Title="飞行(WASD+空格+Shift)",Value=false,Callback=function(v) S.Fly=v; toggleFly(v) end})
+    CT.Fly=t1:Toggle({Flag="Fly",Title="飞行",Value=false,Callback=function(v) S.Fly=v; toggleFly(v) end})
     t1:Slider({Flag="FlySpeed",Title="飞行速度",Step=5,Value={Min=10,Max=150,Default=50},Width=200,IsTextbox=true,Callback=function(v) S.FlySpeed=v end})
 
     local t2=WN:Tab({Title="快捷键", Icon="solar:settings-bold"})
