@@ -42,7 +42,7 @@ print("[硬币] Upgrade=" .. (RequestUpgrade and "OK" or "NIL"))
 local S = {
     AutoThrow = false, AutoBuy = false,
     AutoUpgradeLuck = false, AutoUpgradeCash = false,
-    AutoSell = false, TargetMulti = 3.0,
+    AutoSell = false, TargetMulti = 3,
     Speed = false, SpeedValue = 50,
     Fly = false, FlySpeed = 50,
     Particles = true, Acrylic = true, Transparent = false,
@@ -92,7 +92,7 @@ local function getSelectedCoin()
     return cn.Text or "Paradox Coin"
 end
 
--- 自动投币 Cobalt确认: CoinLanded:FireServer(multi, pos, coinName, nil, nil)
+-- 自动投币 Cobalt确认: CoinLanded:FireServer(3, pos, coinName, nil, nil)
 local function doThrow()
     if not S.AutoThrow or not CoinLanded then return end
     local hrp = getHRP()
@@ -106,7 +106,7 @@ local function doThrow()
             CoinLanded:FireServer(S.TargetMulti, pos, coin, nil, nil)
         end)
         if ok then
-            print("[投币] " .. coin .. " @" .. string.format("%.1f", S.TargetMulti) .. "x")
+            print("[投币] " .. coin .. " @" .. S.TargetMulti .. "x")
         else
             print("[投币] 失败: " .. tostring(err))
         end
@@ -236,8 +236,8 @@ local function mW()
     spawn(function() wait(0.5) pcall(function() WN:SetToggleKey(Enum.KeyCode.F4) end) end)
 
     local t1 = WN:Tab({Title="主控面板", Icon="solar:slider-vertical-bold"})
-    CT.AutoThrow = t1:Toggle({Flag="AutoThrow", Title="自动投币(自选倍率)", Value=false, Callback=function(v) S.AutoThrow=v end})
-    CT.MultiTarget = t1:Slider({Flag="MultiTarget", Title="投币倍率(0~3x)", Step=0.1, Value={Min=0,Max=3,Default=3.0}, Width=200, IsTextbox=true, Callback=function(v) S.TargetMulti=v end})
+    CT.AutoThrow = t1:Toggle({Flag="AutoThrow", Title="自动投币(倍率达标才投)", Value=false, Callback=function(v) S.AutoThrow=v end})
+    CT.MultiTarget = t1:Slider({Flag="MultiTarget", Title="目标倍率(1~3)", Step=1, Value={Min=1,Max=3,Default=3}, Width=200, IsTextbox=true, Callback=function(v) S.TargetMulti=v end})
     t1:Divider()
     CT.AutoBuy = t1:Toggle({Flag="AutoBuy", Title="自动购买硬币", Value=false, Callback=function(v) S.AutoBuy=v end})
     CT.AutoUpgradeLuck = t1:Toggle({Flag="AutoUpgradeLuck", Title="自动升级(运气)", Value=false, Callback=function(v) S.AutoUpgradeLuck=v end})
