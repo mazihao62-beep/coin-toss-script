@@ -292,23 +292,38 @@ end
 -- 启动
 pcall(function() WI:SetTheme("Dark") end)
 S.ParticleColor = tc("Dark")
+
+local PP = false
 WI:Popup({
     Title="扔硬币 v2.5",
     Content="检测当前硬币 / 倍率控制投币 / 自动升级 / 自动出售",
-    Buttons={{Title="加载",Callback=function() PP=true end,Variant="Primary"},{Title="取消",Callback=function() return end}}
+    Buttons={{
+        Title="加载",
+        Callback=function() PP = true end,
+        Variant="Primary"
+    },{
+        Title="取消",
+        Callback=function() return end
+    }}
 })
-local PP=false; while not PP do wait(0.1) end
+
+while not PP do
+    wait(0.1)
+end
 
 UIS.InputBegan:Connect(function(input, gpe)
     if gpe then return end
     local now = tick()
     if now - toggleLock < 0.3 then return end
-    if input.UserInputType==Enum.UserInputType.Keyboard and input.KeyCode==KB.Toggle then
-        toggleLock=now
+    if input.UserInputType == Enum.UserInputType.Keyboard and input.KeyCode == KB.Toggle then
+        toggleLock = now
         if WN then
-            WN_visible=not WN_visible
-            if WN_visible then pcall(function() WN:Open() end)
-            else pcall(function() WN:Close() end) end
+            WN_visible = not WN_visible
+            if WN_visible then
+                pcall(function() WN:Open() end)
+            else
+                pcall(function() WN:Close() end)
+            end
         end
     end
 end)
@@ -316,7 +331,7 @@ end)
 spawn(function()
     local sCoin, sMult = mW()
     print("[扔硬币] v2.5 运行中")
-    local last=0
+    local last = 0
 
     while true do
         if S.Speed then
@@ -330,11 +345,15 @@ spawn(function()
         if S.AutoUpgradeValue then pcall(doUpgradeValue) end
         if S.AutoSell then pcall(doSell) end
 
-        local now=tick()
-        if now-last>2 then
-            last=now
-            if sCoin then pcall(function() sCoin:SetTitle("硬币: " .. (getCoinName() or "无")) end) end
-            if sMult then pcall(function() sMult:SetTitle("倍率: " .. formatNum(getMultiplier()) .. "x") end) end
+        local now = tick()
+        if now - last > 2 then
+            last = now
+            if sCoin then
+                pcall(function() sCoin:SetTitle("硬币: " .. (getCoinName() or "无")) end)
+            end
+            if sMult then
+                pcall(function() sMult:SetTitle("倍率: " .. formatNum(getMultiplier()) .. "x") end)
+            end
         end
         wait(0.2)
     end
