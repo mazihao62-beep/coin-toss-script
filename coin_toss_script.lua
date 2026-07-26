@@ -226,7 +226,7 @@ local function mW()
 
     local t1=WN:Tab({Title="主控面板", Icon="solar:slider-vertical-bold"})
     CT.AutoThrow=t1:Toggle({Flag="AutoThrow",Title="自动投币",Value=false,Callback=function(v) S.AutoThrow=v end})
-    t1:Slider({Flag="ThrowMult",Title="投币倍率",Step=0.1,Value={Min=0.1,Max=3,Default=3},Width=200,IsTextbox=true,Callback=function(v) S.ThrowMultiplier=v end})
+    t1:Slider({Flag="ThrowMult",Title="投币倍率",Step=0.1,Value={Min=1,Max=3,Default=3},Width=200,IsTextbox=true,Callback=function(v) S.ThrowMultiplier=v end})
     t1:Divider()
     CT.AutoBuyCoin=t1:Toggle({Flag="AutoBuyCoin",Title="自动购买硬币",Value=false,Callback=function(v) S.AutoBuyCoin=v end})
     t1:Divider()
